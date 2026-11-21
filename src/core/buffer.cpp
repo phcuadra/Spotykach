@@ -4,11 +4,13 @@
 #include "expose.h"
 #include "daisysp.h"
 #include "common.h"
+#include "fx/fx.disintegrate.h"
 
 using namespace spotykach;
 
 Buffer::Buffer():
 _buffer         { nullptr },
+_disintegrator  { nullptr },
 _buffer_size    { 0 },
 _feedback       { 0.95 }, //-3dB
 _size           { 0 },
@@ -57,6 +59,7 @@ void Buffer::set_feedback(const float val)
 void Buffer::set_rec_size(const size_t value)
 {
     _size = value;
+    if (_disintegrator != nullptr) _disintegrator->reset_tape();
     cut();
 };
 
@@ -84,7 +87,41 @@ void Buffer::clear()
     _size = 0;
     _cut_switch.set_on(false, true);
     _state = State::idle;
+    if (_disintegrator != nullptr) _disintegrator->reset_tape();
 };
+
+bool Buffer::is_disintegrating() const
+{
+    return _disintegrator != nullptr && _size >= 8 && _disintegrator->is_active();
+}
+
+void Buffer::disintegrate_step(const Phasor& prev_frame, const Phasor& curr_frame, const bool is_reverse, const float weight)
+{
+    if (!is_disintegrating() || weight <= 0.0001f) return;
+
+    const int32_t prev_i = prev_frame.integral();
+    const int32_t curr_i = curr_frame.integral();
+
+    // Erode only frames that the readhead has just stepped past so active linear interpolation
+    // between [curr_i, curr_i + 1] never reads a mid-stepped boundary.
+    static constexpr int32_t kMaxStepFrames = 8;
+    if (!is_reverse) {
+        const int32_t delta = curr_i - prev_i;
+        if (delta > 0 && delta <= kMaxStepFrames) {
+            for (int32_t k = prev_i; k < curr_i; ++k) {
+                _disintegrator->erode_frame(_buffer, _size, k, weight);
+            }
+        }
+    }
+    else {
+        const int32_t rdelta = prev_i - curr_i;
+        if (rdelta > 0 && rdelta <= kMaxStepFrames) {
+            for (int32_t k = prev_i + 1; k > curr_i + 1; --k) {
+                _disintegrator->erode_frame(_buffer, _size, k, weight);
+            }
+        }
+    }
+}
 
 void Buffer::read_linear(const Phasor& frame, float& out0, float& out1) 
 {

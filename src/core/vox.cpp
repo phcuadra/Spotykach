@@ -113,11 +113,12 @@ void Vox::process(float& out0, float& out1) {
     auto w_out0 = 0.f;
     auto w_out1 = 0.f;
     if (_playhead_increment > 0) {
+        const auto disintegrate_weight = (_mode == Mode::Spread) ? (0.35f * _att) : _att;
         for (auto& w: _wins) {
             if (!w.is_active()) continue;
             w_out0 = 0.f;
             w_out1 = 0.f;
-            w.process(_buffer, w_out0, w_out1);
+            w.process(_buffer, w_out0, w_out1, disintegrate_weight);
             out0 += w_out0;
             out1 += w_out1;
         }

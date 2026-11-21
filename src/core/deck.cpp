@@ -48,6 +48,7 @@ void Deck::init(const Params p)
     fxp.sample_rate = p.sample_rate;
     fxp.delay_buf = p.delay_buf;
     _fx.init(fxp);
+    _buffer.set_disintegrator(&_fx.grit().disintegrator());
 
     using namespace std::placeholders;
 

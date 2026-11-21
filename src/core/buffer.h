@@ -12,6 +12,8 @@
 
 namespace spotykach {
 
+class Disintegrate;
+
 class Buffer {
 public:
     struct Frame {
@@ -27,6 +29,10 @@ public:
     void init(Frame* buf, size_t length);
 
     void read_linear(const Phasor& frame, float& out0, float& out1);
+
+    void set_disintegrator(Disintegrate* disintegrator) { _disintegrator = disintegrator; }
+    bool is_disintegrating() const;
+    void disintegrate_step(const Phasor& prev_frame, const Phasor& curr_frame, const bool is_reverse, const float weight);
     
     void set_recording(const bool is_rec_on);
     bool is_recording() const { return _state != State::idle; }
@@ -62,18 +68,19 @@ private:
 
     SoftSwitch _cut_switch;
 
-    Frame*  _buffer;
-    size_t  _buffer_size;
-    float   _buffer_size_kof;
-    float   _feedback;
-    size_t  _size;
-    size_t  _target_length;
-    size_t  _write_head;
-    size_t  _read_head;
-    size_t  _fade_counter;
-    size_t  _wrap_counter;
-    State   _state;
-    bool    _did_cut;
+    Frame*        _buffer;
+    Disintegrate* _disintegrator;
+    size_t        _buffer_size;
+    float         _buffer_size_kof;
+    float         _feedback;
+    size_t        _size;
+    size_t        _target_length;
+    size_t        _write_head;
+    size_t        _read_head;
+    size_t        _fade_counter;
+    size_t        _wrap_counter;
+    State         _state;
+    bool          _did_cut;
 };
 
 };

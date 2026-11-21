@@ -51,6 +51,7 @@ void Fx::process(float& inout0, float& inout1)
     float out[2] = { inout0, inout1 };
 
     auto grit_kof = _grit_switch.process();
+    _grit.set_gate(grit_kof);
     if (!_grit_switch.is_idle()) {
         float grit[2] = { inout0, inout1 };
         _grit.process(grit[0], grit[1]);

@@ -125,10 +125,12 @@ public:
       _increment = Phasor(val);
     }
 
-    void process(Buffer* buf, float& out0, float& out1) 
+    void process(Buffer* buf, float& out0, float& out1, const float vox_weight = 1.f) 
     {
         //Reverse playhead if needed
         auto rev_base = _rev_base();
+        auto prev_readhead = _readhead;
+        auto had_prev = !_is_init;
         _readhead = _is_reverse ? rev_base - _playhead : _playhead;
         _readhead += _loop_start;
         
@@ -141,6 +143,9 @@ public:
 
         // Window envelope
         auto att = _attenuation();
+        if (had_prev && buf->is_disintegrating()) {
+          buf->disintegrate_step(prev_readhead, _readhead, _is_reverse, att * vox_weight);
+        }
         out0 *= att;
         out1 *= att;
         if (_pan.Stage() != .5f) {

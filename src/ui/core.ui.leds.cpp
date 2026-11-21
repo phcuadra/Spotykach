@@ -16,10 +16,11 @@ static constexpr uint32_t kReelColor     = 0xf7941d;
 static constexpr uint32_t kSliceColor    = 0x0064ff;
 static constexpr uint32_t kDriftColor    = 0xc850ff;
 static constexpr uint32_t kDelayColor    = 0xFF6565;
-static constexpr uint32_t kDriveColor   = 0xFFD524;
-static constexpr uint32_t kReduceColor  = 0xFF9A24;
-static constexpr uint32_t kFilterLPColor  = 0x7F1EA6;
-static constexpr uint32_t kFilterHPColor  = 0x29C745;
+static constexpr uint32_t kDriveColor         = 0xFFD524;
+static constexpr uint32_t kReduceColor        = 0xFF9A24;
+static constexpr uint32_t kFilterLPColor      = 0x7F1EA6;
+static constexpr uint32_t kFilterHPColor      = 0x29C745;
+static constexpr uint32_t kDisintegrateColor  = 0x1CE8D0;
 static constexpr std::array<uint32_t, kStorageTapeCount> kTapeColor = {
     // Lexicographically ordered colors, 
     // so the folders on the card going 
@@ -44,9 +45,10 @@ static uint32_t mode_color(const spotykach::Mode mode)
 static uint32_t grit_color(const Grit::Mode mode, const float intensity)
 {
       switch (mode) {
-        case Grit::Mode::Filter: return intensity < .5f ? kFilterLPColor : kFilterHPColor;
-        case Grit::Mode::Reduce: return kReduceColor;
-        default:                 return kDriveColor;
+        case Grit::Mode::Filter:       return intensity < .5f ? kFilterLPColor : kFilterHPColor;
+        case Grit::Mode::Reduce:       return kReduceColor;
+        case Grit::Mode::Disintegrate: return kDisintegrateColor;
+        default:                       return kDriveColor;
     }
 }
 static uint32_t flux_color(const Flux::Mode mode)
@@ -200,9 +202,15 @@ void CoreUI::_draw_fx(const Deck::Ref ref)
     auto& fx = _core.deck(ref).fx();
 
     /* Grit ---------------------------- */
-    auto color = grit_color(fx.grit().mode(), _grit_intens[ref].value());
+    auto grit_mode = fx.grit().mode();
+    auto color = grit_color(grit_mode, _grit_intens[ref].value());
     auto grit_id = ref == Deck::A ? Hardware::LED_GRIT_A : Hardware::LED_GRIT_B;
-    _led[grit_id].on(color, fx.is_grit_on() ? on_bright : off_bright);
+    auto grit_bright = fx.is_grit_on() ? on_bright : off_bright;
+    if (fx.is_grit_on() && grit_mode == Grit::Mode::Disintegrate && _core.deck(ref).is_generating()) {
+        auto act = std::min(1.f, fx.grit().disintegrator().activity() * 2.5f);
+        grit_bright = 1.f - 0.3f * act;
+    }
+    _led[grit_id].on(color, grit_bright);
 
     /* Flux ---------------------------- */
     auto flux_mode = fx.flux().mode();
@@ -342,6 +350,9 @@ void CoreUI::_draw_ring(const Deck::Ref ref)
         if (grit_mode == Grit::Mode::Filter) {
             _show_filter(ref);
             _show_value(_grit_intens[ref], ring, fx_color, ValueDisplay::OnMoveDiffOnly);
+            _show_value(_grit_char[ref], ring, fx_color, ValueDisplay::OnMove);
+        }
+        else if (grit_mode == Grit::Mode::Disintegrate) {
             _show_value(_grit_char[ref], ring, fx_color, ValueDisplay::OnMove);
         }
         _show_value(_grit_mix[ref], ring, fx_color);
